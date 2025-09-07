@@ -1,0 +1,84 @@
+name: Generate Sticker
+
+on:
+  workflow_dispatch:  # allows you to run it manually from GitHub Actions tab
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install reportlab pdf2image pillow
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils
+
+      - name: Create sticker generator script
+        run: |
+          cat << 'EOF' > sticker.py
+          from reportlab.lib.units import inch
+          from reportlab.pdfgen import canvas
+          from pdf2image import convert_from_path
+
+          # Output paths
+          pdf_path = "sticker_single_4x6.pdf"
+          png_path = "sticker_single_4x6.png"
+          logo_path = "12.jpg"  # make sure logo is in repo root
+
+          # Sticker size (4x6 inches)
+          sticker_width = 4 * inch
+          sticker_height = 6 * inch
+
+          # Create PDF
+          c = canvas.Canvas(pdf_path, pagesize=(sticker_width, sticker_height))
+
+          # Draw logo
+          logo_width = 2 * inch
+          logo_height = 2 * inch
+          try:
+              c.drawImage(logo_path, (sticker_width - logo_width) / 2,
+                          sticker_height - logo_height - 20,
+                          width=logo_width, height=logo_height,
+                          preserveAspectRatio=True, mask='auto')
+          except:
+              pass  # if logo not found, continue
+
+          # Shop name
+          c.setFont("Helvetica-Bold", 20)
+          c.drawCentredString(sticker_width / 2, sticker_height - logo_height - 40, "राम बीज भण्डार")
+
+          # Product details
+          c.setFont("Helvetica", 16)
+          c.drawString(50, sticker_height - logo_height - 90, "Product: Thiomethoxam 25%")
+          c.drawString(50, sticker_height - logo_height - 120, "Qty: 500 gm")
+
+          # Contact info
+          c.setFont("Helvetica-Bold", 16)
+          c.drawString(50, 80, "संपर्क करे: 8869819734  9837300681")
+
+          c.save()
+
+          # Convert PDF to PNG
+          pages = convert_from_path(pdf_path, dpi=200)
+          pages[0].save(png_path, "PNG")
+          EOF
+
+      - name: Run sticker generator
+        run: python sticker.py
+
+      - name: Upload sticker artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: stickers
+          path: |
+            sticker_single_4x6.pdf
+            sticker_single_4x6.png
